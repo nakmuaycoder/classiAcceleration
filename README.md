@@ -23,6 +23,7 @@ This project have been done with an Arduino Nano 33 BLE Sense sending the accele
 |:---:|:----:|
 |0|walk|
 |1|run|
+|2|nothing|
 
 ## [Preprocessing of the data (/data_preprocessing)](/data_preprocessing/README.md)
 
