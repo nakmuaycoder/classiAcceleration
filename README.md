@@ -8,7 +8,7 @@ Steps of this project :
 - [x] Create an acceleration recording system with an arduino.
 - [x] Create a TensorFlow Lite classifier.
 - [x] Deploy on Arduino nano 33.
-- [ ] test on real life.
+- [x] test on real life.
 
 ## Recording system : collect the data
 
