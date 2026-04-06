@@ -4,6 +4,7 @@
 [![Framework: PyTorch](https://img.shields.io/badge/Framework-PyTorch-ee4c2c.svg)](https://pytorch.org/)
 [![Hardware: Arduino Nano 33 BLE](https://img.shields.io/badge/Hardware-Arduino%20Nano%2033%20BLE-00979d.svg)](https://store.arduino.cc/arduino-nano-33-ble-sense)
 [![Quantization: INT8](https://img.shields.io/badge/Quantization-INT8-green.svg)](https://tensorflow.org/lite/performance/post_training_quantization)
+[![CI Status](https://github.com/nakmuaycoder/classiAcceleration/actions/workflows/ci.yml/badge.svg)](https://github.com/nakmuaycoder/classiAcceleration/actions)
 
 ## 🔄 Project Revival: 5 Years Later
 This repository is a revival of a personal project originally created in **early 2021** (see tag `v1_02/21` for the legacy version).
