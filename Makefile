@@ -50,6 +50,16 @@ train:
 nas:
 	export PYTHONPATH=$${PYTHONPATH}:. && $(PYTHON) $(SRC_DIR)/train.py --multirun
 
+.PHONY: nas-1d
+nas-1d:
+	export PYTHONPATH=$${PYTHONPATH}:. && $(PYTHON) $(SRC_DIR)/train.py --multirun \
+		data.use_norm=true data.augment=false
+
+.PHONY: nas-3d
+nas-3d:
+	export PYTHONPATH=$${PYTHONPATH}:. && $(PYTHON) $(SRC_DIR)/train.py --multirun \
+		data.use_norm=false
+
 .PHONY: export
 export:
 	export PYTHONPATH=$${PYTHONPATH}:. && $(PYTHON) $(SRC_DIR)/export.py
