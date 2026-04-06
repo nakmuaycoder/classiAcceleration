@@ -1,0 +1,5 @@
+_target_: ml.src.model.TinyMLConvNet
+in_channels: 3
+filters: [4, 8]
+num_classes: 3
+seq_len: 10

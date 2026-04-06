@@ -6,17 +6,18 @@ ARDUINO_DIR := firmware/FitnessTracker
 # --- Default Goal ---
 .PHONY: help
 help:
-	@echo "Available commands:"
-	@echo "  make install     Install dependencies and setup environment"
-	@echo "  make clean       Remove cached files and temporary data"
+	@echo "TinyML Fitness Tracker - Modernized Workflow"
+	@echo "-------------------------------------------"
+	@echo "  make install     Setup environment and dependencies"
 	@echo "  make data        Preprocess raw logs into clean CSVs"
-	@echo "  make test        Run unit tests (augmentation, etc.)"
-	@echo "  make format      Format and lint code with Ruff"
-	@echo "  make train       Train the model with 3D rotation augmentation"
-	@echo "  make export      Convert trained model to TFLite (INT8)"
-	@echo "  make firmware    Compile and upload (if arduino-cli is installed)"
+	@echo "  make train       Train a single model with current config"
+	@echo "  make nas         Launch Architecture Search (Optuna NAS)"
+	@echo "  make tensorboard Start TensorBoard visualization"
+	@echo "  make test        Execute all unit tests (pytest)"
+	@echo "  make format      Format and lint all code (Ruff)"
+	@echo "  make clean       Cleanup cached artifacts"
 
-# --- Installation ---
+# --- Setup ---
 .PHONY: install
 install:
 	@echo "Installing dependencies using uv..."
@@ -39,24 +40,23 @@ clean:
 	rm -rf .uv
 	@echo "Done."
 
-# --- Parameters (can be overridden from CLI) ---
-AUGMENT ?= 0
-QUANTIZE ?= 0
-TRAIN_FILES ?=
-VAL_FILES ?=
-
 # --- Model Workflow ---
 .PHONY: train
 train:
-	$(PYTHON) $(SRC_DIR)/train.py \
-		$(if $(filter 1,$(AUGMENT)),--augment) \
-		$(if $(filter 1,$(QUANTIZE)),--quantize) \
-		$(if $(TRAIN_FILES),--train-files $(TRAIN_FILES)) \
-		$(if $(VAL_FILES),--val-files $(VAL_FILES))
+	export PYTHONPATH=$${PYTHONPATH}:. && $(PYTHON) $(SRC_DIR)/train.py
+
+# Automated NAS (Neural Architecture Search) with Optuna Sweeper
+.PHONY: nas
+nas:
+	export PYTHONPATH=$${PYTHONPATH}:. && $(PYTHON) $(SRC_DIR)/train.py --multirun
 
 .PHONY: export
 export:
-	$(PYTHON) $(SRC_DIR)/export.py
+	export PYTHONPATH=$${PYTHONPATH}:. && $(PYTHON) $(SRC_DIR)/export.py
+
+.PHONY: tensorboard
+tensorboard:
+	uv run tensorboard --logdir multirun/
 
 # --- Testing ---
 .PHONY: test
@@ -66,5 +66,5 @@ test:
 # --- Quality ---
 .PHONY: format
 format:
-	uv run ruff check --fix
-	uv run ruff format
+	uv run ruff check --fix .
+	uv run ruff format .

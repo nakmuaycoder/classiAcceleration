@@ -1,0 +1,23 @@
+defaults:
+  - model: standard
+  - training: default
+  - data: dataset
+  - override hydra/sweeper: optuna
+  - _self_
+
+# 🧪 OPTUNA HYPERPARAMETER SEARCH CONFIGURATION (NAS)
+hydra:
+  sweeper:
+    direction: maximize
+    storage: null
+    study_name: tinyml_architecture_search
+    n_trials: 10
+    n_jobs: 1
+
+    # 🎯 SEARCH SPACE
+    params:
+      training.lr: interval(0.001, 0.1)
+      model.filters: choice([2, 4], [4, 8], [8, 16], [16, 32])
+      model.hidden_dim: choice(8, 16, 32)
+      data.augment: false
+      data.use_norm: true

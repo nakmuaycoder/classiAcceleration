@@ -1,0 +1,35 @@
+# Data Configuration (Zero-Split approach)
+# We instantiate two datasets directly from here.
+
+# Defaults for common parameters
+defaults:
+  - _self_
+
+# Shared parameters for both sets
+seq_len: 20
+train_path: ${hydra:runtime.cwd}/data/clean
+use_norm: false
+augment: true
+
+# 📁 TRAINING DATASET
+train_ds:
+  _target_: ml.src.dataset.AccelerometerDataset
+  seq_len: ${data.seq_len}
+  stride: 2
+  files:
+    - ${data.train_path}/LBX_LOGS_2020-11-16_17-47_walk.csv
+    - ${data.train_path}/LBX_LOGS_2020-11-16_18-05_run.csv
+    - ${data.train_path}/LBX_LOGS_2020-11-17_16-11_walk.csv
+    - ${data.train_path}/LBX_LOGS_2020-11-17_18-30_run.csv
+    - ${data.train_path}/LBX_LOGS_2020-11-18_15-44_walk.csv
+    - ${data.train_path}/LBX_LOGS_2020-11-18_18-15_run.csv
+    - ${data.train_path}/LBX_LOGS_2020-11-19_15-35_walk.csv
+
+# 📁 VALIDATION DATASET
+val_ds:
+  _target_: ml.src.dataset.AccelerometerDataset
+  seq_len: ${data.seq_len}
+  stride: 5
+  files:
+    - ${data.train_path}/LBX_LOGS_2020-11-20_15-52_walk.csv
+    - ${data.train_path}/LBX_LOGS_2020-11-20_18-21_run.csv

@@ -2,3 +2,4 @@ data/raw/
 data/clean/
 *.pyc
 __pycache__
+multirun/
