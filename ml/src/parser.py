@@ -72,9 +72,20 @@ class AccelLogParser:
         with open(path_log) as f:
             lines = f.readlines()
 
+        # Fallback label extraction from filename
+        filename_lower = os.path.basename(path_log).lower()
+        if "rest" in filename_lower:
+            fallback_label = 0
+        elif "walk" in filename_lower:
+            fallback_label = 1
+        elif "run" in filename_lower:
+            fallback_label = 2
+        else:
+            fallback_label = 0
+
         rows = []
         current_row = {}
-        current_label = 0
+        current_label = fallback_label
 
         for line in lines:
             line = line.strip()
@@ -83,7 +94,9 @@ class AccelLogParser:
             if f"0000{self.label_handle}" in line:
                 try:
                     hex_val = "".join(line.split("value: ")[1].split())
-                    current_label = struct.unpack("<i", bytes.fromhex(hex_val))[0]
+                    parsed_label = struct.unpack("<i", bytes.fromhex(hex_val))[0]
+                    if fallback_label == 0:
+                        current_label = parsed_label
                 except (ValueError, struct.error, IndexError):
                     pass
 
