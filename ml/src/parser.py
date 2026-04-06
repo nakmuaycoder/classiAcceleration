@@ -19,15 +19,14 @@ import pandas as pd
 class AccelLogParser:
     """
     Parser for accelerometer data samples captured via LightBlue BLE Sniffer.
+    Ensures temporal synchronization across axes (x, y, z) and strictly
+    tracked data lineage.
     """
 
     def __init__(self, mapping: dict[str, str] | str | None = None):
         """
         Initializes the parser with a mapping (dict or path to JSON).
-
-        Default mapping: {"2102": "x", "2103": "y", "2104": "z", "label": "2105"}
         """
-        # Default fallback mapping
         default_mapping = {"2102": "x", "2103": "y", "2104": "z", "label": "2105"}
 
         if mapping is None:
@@ -42,29 +41,39 @@ class AccelLogParser:
             config = mapping
 
         self.label_handle = config.get("label", "2105")
-        # Column mapping: handle -> axis (e.g., "2102" -> "x")
         self.column_mapping = {k: v for k, v in config.items() if k != "label"}
+        self.axes = list(self.column_mapping.values())
 
-    def parse(self, path_log: str) -> pd.DataFrame:
+    def parse(self, path_log: str, explicit_date: str | None = None) -> pd.DataFrame:
         """
-        Parses a single log file into a DataFrame.
+        Parses a single log file.
+
+        Args:
+            path_log: Path to the .txt log.
+            explicit_date: Optional date string (YYYYMMDD). If not provided,
+                           the parser tries to extract it from the filename.
         """
         if not os.path.exists(path_log):
             raise FileNotFoundError(f"Log file not found: {path_log}")
 
-        # Extract date from filename
-        try:
-            date_str = os.path.basename(path_log).split("_")[2].replace("-", "")
-        except IndexError:
-            date_str = datetime.now().strftime("%Y%m%d")
+        # Strictly trying to get the date: Filename > Argument > Error
+        date_str = explicit_date
+        if date_str is None:
+            try:
+                # Expecting legacy format LBX_LOGS_YYYY-MM-DD_...
+                # On essaie d'extraire la date du nom de fichier LBX_LOGS_2020-11-20_...
+                date_str = os.path.basename(path_log).split("_")[2].replace("-", "")
+            except (IndexError, AttributeError):
+                raise ValueError(
+                    f"Could not extract date from filename '{os.path.basename(path_log)}'. "
+                    "Please provide an 'explicit_date' (YYYYMMDD) to ensure data lineage."
+                ) from None
 
         with open(path_log) as f:
             lines = f.readlines()
 
-        data_dict = {col: [] for col in self.column_mapping.values()}
-        data_dict["date"] = []
-        data_dict["label"] = []
-
+        rows = []
+        current_row = {}
         current_label = 0
 
         for line in lines:
@@ -72,11 +81,10 @@ class AccelLogParser:
 
             # 1. Update activity label
             if f"0000{self.label_handle}" in line:
-                parts = line.split(" ")
-                hex_val = parts[-1]
                 try:
+                    hex_val = "".join(line.split("value: ")[1].split())
                     current_label = struct.unpack("<i", bytes.fromhex(hex_val))[0]
-                except (ValueError, struct.error):
+                except (ValueError, struct.error, IndexError):
                     pass
 
             # 2. Parse sensor data change
@@ -85,39 +93,46 @@ class AccelLogParser:
                 if len(parts) < 8:
                     continue
 
-                # Check handle (format 0000XXXX)
                 handle = parts[7][4:8]
 
                 if handle in self.column_mapping:
-                    hex_val = parts[-1]
                     try:
-                        # Sensor values are usually little-endian floats (f)
+                        hex_val = "".join(line.split("value: ")[1].split())
+                        # Valeur float (f) 32 bits little-endian
                         value = struct.unpack("<f", bytes.fromhex(hex_val))[0]
                         col_name = self.column_mapping[handle]
-                        data_dict[col_name].append(value)
 
-                        # Sync date and label with the 'x' axis trigger
+                        # Trigger de synchronisation sur l'axe X
+                        if col_name == "x" and "x" in current_row:
+                            rows.append(current_row)
+                            current_row = {}
+
+                        current_row[col_name] = value
+                        current_row["label"] = current_label
+
                         if col_name == "x":
                             hour_str = parts[3].replace(":", "")
                             try:
-                                full_date = datetime.strptime(
+                                current_row["date"] = datetime.strptime(
                                     date_str + " " + hour_str, "%Y%m%d %H%M%S"
                                 )
-                                data_dict["date"].append(full_date)
                             except ValueError:
-                                data_dict["date"].append(None)
+                                current_row["date"] = None
 
-                            data_dict["label"].append(current_label)
-                    except (ValueError, struct.error):
+                    except (ValueError, struct.error, IndexError):
                         pass
 
-        # Clean output
-        df = pd.DataFrame.from_dict(data_dict, orient="index").transpose()
-        return df.dropna()
+        # Flush du dernier enregistrement
+        if current_row:
+            rows.append(current_row)
+
+        df = pd.DataFrame(rows)
+        # On exige la présence de tous les axes pour valider la ligne
+        return df.dropna(subset=self.axes)
 
     def parse_to_csv(self, source_path: str, target_path: str) -> None:
         """
-        Parses a log file and saves it immediately to CSV.
+        Parses and saves immediately to CSV.
         """
         df = self.parse(source_path)
         df.to_csv(target_path, index=False)
