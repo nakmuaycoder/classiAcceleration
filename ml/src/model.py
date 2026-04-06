@@ -86,6 +86,7 @@ class TinyMLConvNet(nn.Module):
         filters: list[int] | None = None,
         num_classes: int = 3,
         seq_len: int = 10,
+        hidden_dim: int = 16,
     ):
         """
         Initializes the 1D-CNN with specific filter counts.
@@ -95,6 +96,7 @@ class TinyMLConvNet(nn.Module):
             filters (List[int]): Filters count for each of the 2 conv layers. Defaults to [8, 16].
             num_classes (int): Prediction classes count.
             seq_len (int): Windows length.
+            hidden_dim (int): Hidden layer size for the classifier.
         """
         super().__init__()
 
@@ -127,7 +129,10 @@ class TinyMLConvNet(nn.Module):
         self.flat_size = self._get_flat_size(dummy_input)
 
         self.classifier = nn.Sequential(
-            nn.Linear(self.flat_size, 16), nn.ReLU(), nn.Dropout(0.2), nn.Linear(16, num_classes)
+            nn.Linear(self.flat_size, hidden_dim),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(hidden_dim, num_classes),
         )
 
     def _get_flat_size(self, x: torch.Tensor) -> int:
