@@ -61,7 +61,7 @@ export:
 # --- Testing ---
 .PHONY: test
 test:
-	export PYTHONPATH=$${PYTHONPATH}:. && uv run pytest ml/src/
+	export PYTHONPATH=$${PYTHONPATH}:. && uv run pytest ml/tests/
 
 # --- Quality ---
 .PHONY: format

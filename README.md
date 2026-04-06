@@ -6,7 +6,7 @@
 [![Quantization: INT8](https://img.shields.io/badge/Quantization-INT8-green.svg)](https://tensorflow.org/lite/performance/post_training_quantization)
 
 ## 🔄 Project Revival: 5 Years Later
-This repository is a revival of a personal project originally created in **early 2021** (see tag `v1_02/21` for the legacy version). 
+This repository is a revival of a personal project originally created in **early 2021** (see tag `v1_02/21` for the legacy version).
 
 The goal was to build a fitness tracker capable of distinguishing between **walking** and **running** using 3D accelerations on an **Arduino Nano 33 BLE Sense**.
 
@@ -19,17 +19,36 @@ TinyML has evolved significantly in the last 5 years. This revival aims to:
 
 ---
 
+## 🏗 Architecture
+The project follows a modern, modular structure to ensure maintainability and testability:
+
+```text
+.
+├── firmware/         # Arduino C++ code (LSM9DS1 sensor logic)
+├── ml/
+│   ├── src/          # Core Python modules (model, augmentation, parser)
+│   ├── tests/        # Pytest unit testing suite
+│   ├── notebooks/    # EDA and experimental analysis
+│   └── pyproject.toml # Unified dependency & tool configuration
+├── data/
+│   ├── raw/          # LightBlue BLE Sniffer logs captured from Arduino (.txt)
+│   └── clean/        # Processed CSVs for model training
+└── Makefile          # Unified project workflow (Data -> Test -> Train)
+```
+
+---
+
 ## 🛠 Features
 
 ### 📐 Robust 3D Rotation Augmentation
-One of the biggest challenges in wearable tech is sensor orientation. If the user wears the device upside down or on a different limb, raw $(x, y, z)$ values change.
-- Our custom `Random3DRotation` layer applies random spatial rotations using the **Rodrigues Formula**.
-- This ensures the model learns the "physics" of the movement (accelerations patterns) rather than fixed directional magnitudes.
+One of the biggest challenges in wearable tech is sensor orientation. Our custom `rotate_batch_3d` function and `Random3DRotation` layer apply spatial rotations using the **Rodrigues Formula**.
+- This ensures the model learns the "physics" of movements rather than fixed directional magnitudes.
+- Includes a full suite of unit tests to verify rotation identity and reversibility.
 
 ### 🧠 Modern 1D-CNN Architecture
-Unlike the original 2D approach, we now use a **1D Convolutional Neural Network** which is more biologically and physically aligned with time-series acceleration data.
+Optimized for tiny ARM Cortex-M4 processors:
 - **Param Count**: ~1,000 parameters.
-- **Latency**: Sub-millisecond inference on MCU.
+- **Accuracy**: High precision even under INT8 quantization.
 
 ---
 
@@ -40,21 +59,32 @@ Unlike the original 2D approach, we now use a **1D Convolutional Neural Network*
 - **Arduino IDE / CLI**: For firmware deployment.
 
 ### Installation
-Setting up the environment is automated via the `Makefile`:
-
 ```bash
-# Install dependencies and sync environment
+# Install dependencies, setup env and git hooks
 make install
 ```
 
-### Training & Export
+### Development Workflow
 ```bash
-# Train the model with 3D rotation augmentation
-make train
+# 1. Preprocess LightBlue sniffer logs
+make data
 
-# Convert to TFLite (INT8 Quantized)
-make export
+# 2. Run quality checks & unit tests
+make format
+make test
+
+# 3. Train the model (toggle augmentation)
+make train AUGMENT=1
 ```
+
+---
+
+## ✨ Code Quality & Security
+To ensure a production-ready codebase, we integrated:
+- **Ruff**: Ultra-fast linting and formatting.
+- **Pytest**: Automated testing of the augmentation math.
+- **Pre-commit**: Automatic quality checks before every commit.
+- **Secret Detection**: Protection against accidental leaks of credentials.
 
 ---
 
@@ -62,7 +92,5 @@ make export
 The original implementation (available at tag `v1_02/21`) focused on:
 - Data collection via BLE and LightBlue app.
 - TensorFlow Lite for Microcontrollers (Legacy API).
-- Basic Jupyter Notebook analysis.
 
 Check out the [Legacy README](https://github.com/nakmuaycoder/classiAcceleration/tree/v1_02/21) context in the git history or the `v1_02/21` tag for the original 2021 code.
-
