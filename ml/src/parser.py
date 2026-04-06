@@ -127,7 +127,14 @@ class AccelLogParser:
             rows.append(current_row)
 
         df = pd.DataFrame(rows)
-        # On exige la présence de tous les axes pour valider la ligne
+        if df.empty:
+            return pd.DataFrame(columns=self.axes + ["label", "date"])
+
+        # Ensure all axes columns exist before dropping NaNs to avoid KeyError
+        for ax in self.axes:
+            if ax not in df.columns:
+                df[ax] = None
+
         return df.dropna(subset=self.axes)
 
     def parse_to_csv(self, source_path: str, target_path: str) -> None:
