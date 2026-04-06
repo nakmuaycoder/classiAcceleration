@@ -64,10 +64,14 @@ class MinMaxNormalize(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Scales the input tensor.
+        Scales the input tensor with clipping for robustness.
         """
-        x_std = (x - self.min_val) / (self.max_val - self.min_val)
-        return x_std * (self.range_max - self.range_min) + self.range_min
+        denom = self.max_val - self.min_val
+        if denom == 0:
+            return torch.full_like(x, self.range_min)
+        x_std = (x - self.min_val) / denom
+        x_scaled = x_std * (self.range_max - self.range_min) + self.range_min
+        return torch.clamp(x_scaled, self.range_min, self.range_max)
 
 
 class TinyMLConvNet(nn.Module):
