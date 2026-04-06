@@ -10,6 +10,8 @@ help:
 	@echo "  make install     Install dependencies and setup environment"
 	@echo "  make clean       Remove cached files and temporary data"
 	@echo "  make data        Preprocess raw logs into clean CSVs"
+	@echo "  make test        Run unit tests (augmentation, etc.)"
+	@echo "  make format      Format and lint code with Ruff"
 	@echo "  make train       Train the model with 3D rotation augmentation"
 	@echo "  make export      Convert trained model to TFLite (INT8)"
 	@echo "  make firmware    Compile and upload (if arduino-cli is installed)"
@@ -55,3 +57,14 @@ train:
 .PHONY: export
 export:
 	$(PYTHON) $(SRC_DIR)/export.py
+
+# --- Testing ---
+.PHONY: test
+test:
+	export PYTHONPATH=$${PYTHONPATH}:. && uv run pytest ml/src/
+
+# --- Quality ---
+.PHONY: format
+format:
+	uv run ruff check --fix
+	uv run ruff format
