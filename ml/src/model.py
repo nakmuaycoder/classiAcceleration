@@ -32,7 +32,7 @@ class VectorNorm(nn.Module):
         Returns:
             torch.Tensor: Normalized batch (B, 1, L).
         """
-        return torch.norm(x, p=2, dim=1, keepdim=True)
+        return torch.linalg.norm(x, ord=2, dim=1, keepdim=True)
 
 
 class MinMaxNormalize(nn.Module):
