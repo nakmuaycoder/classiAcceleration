@@ -1,67 +1,67 @@
 """
-Data Preprocessing Module for TinyML Fitness Tracker.
-
-This module provides utilities to convert raw logs captured via
-the LightBlue BLE Sniffer app into structured CSV files.
-
-Author: nakmuaycoder
-Date: 2026/04
+Data Preprocessing Pipeline for Accelerometer Logs with Typer CLI.
 """
 
-import glob
-import json
-import os
+from pathlib import Path
+from typing import Annotated
+
+import typer
 
 from ml.src.parser import AccelLogParser
 
+# Simple instantiation of Typer app
+app = typer.Typer(help="Clean raw accelerometer log files into training CSVs.")
 
-def preprocess():
+
+@app.command()
+def main(
+    raw_dir: Annotated[Path, typer.Option(help="Directory containing raw .txt logs")] = Path(
+        "data/raw"
+    ),
+    clean_dir: Annotated[Path, typer.Option(help="Output directory for clean CSVs")] = Path(
+        "data/clean"
+    ),
+    mapping_path: Annotated[Path, typer.Option(help="Path to JSON handle mapping file")] = Path(
+        "data/log_mapping.json"
+    ),
+):
     """
-    Scans the raw data directory for BLE logs and converts them to formatted CSVs.
-
-    Workflow:
-    1. Reads UUID mappings from header.json (mappings for x, y, z, and labels).
-    2. Instantiates an AccelLogParser with the defined header.
-    3. Iterates over all .txt log files in data/raw/.
-    4. Parses hex-encoded sensor values into physical acceleration units.
-    5. Saves the resulting DataFrames into data/clean/ for model ingestion.
+    Cleans raw accelerometer log files into standardized CSVs for training.
     """
-    raw_dir = "data/raw"
-    clean_dir = "data/clean"
-    header_path = "data_preprocessing/header.json"
+    # 1. Path validations
+    if not raw_dir.exists():
+        print(f"❌ Raw directory not found: {raw_dir}")
+        raise typer.Exit(1)
 
-    os.makedirs(clean_dir, exist_ok=True)
+    if not mapping_path.exists():
+        print(f"ℹ️ Warning: Mapping file not found at {mapping_path}. Default parser used.")
+        mapping = None
+    else:
+        mapping = str(mapping_path)
 
-    if not os.path.exists(header_path):
-        print(f"❌ Header mapping not found at {header_path}")
+    clean_dir.mkdir(parents=True, exist_ok=True)
+
+    # 2. Scanning and Processing
+    raw_files = list(raw_dir.glob("*.txt"))
+    if not raw_files:
+        print(f"ℹ️ No logs found in {raw_dir}")
         return
 
-    with open(header_path) as f:
-        header = json.load(f)
+    print(f"🧹 Preprocessing {len(raw_files)} files using Typer engine...")
+    parser = AccelLogParser(mapping=mapping)
 
-    parser = AccelLogParser(header)
-    log_files = glob.glob(os.path.join(raw_dir, "*.txt"))
+    for rf in raw_files:
+        source_path = str(rf)
+        target_path = str(clean_dir / rf.with_suffix(".csv").name)
 
-    if not log_files:
-        print(f"❌ No raw log files found in {raw_dir}")
-        return
-
-    print(f"🧹 Found {len(log_files)} raw log files.")
-
-    for log_path in log_files:
-        filename = os.path.basename(log_path).replace(".txt", ".csv")
-        output_path = os.path.join(clean_dir, filename)
-
-        print(f"  -> Processing {os.path.basename(log_path)}...")
         try:
-            # We use the new refactored parser
-            df = parser.parse(log_path)
-            df.to_csv(output_path, index=False)
+            parser.parse_to_csv(source_path, target_path)
+            print(f"  ✅ {rf.name} -> CSV")
         except Exception as e:
-            print(f"  ❌ Error processing {log_path}: {e}")
+            print(f"  ❌ Failed {rf.name}: {e}")
 
-    print(f"\n✨ Done! Processed files are in {clean_dir}")
+    print(f"🚀 Complete. Data located in: {clean_dir}")
 
 
 if __name__ == "__main__":
-    preprocess()
+    app()
