@@ -54,8 +54,20 @@ class AccelerometerDataset(Dataset):
                 window = data[i : i + self.seq_len].T
                 label = labels[i + self.seq_len // 2]
 
-                self.samples.append(window)
-                self.labels.append(label)
+    def __len__(self) -> int:
+        # Define a fixed number of iterations per epoch (e.g., 1000)
+        return 1000
+
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
+        # Randomly select a source
+        source_idx = np.random.randint(0, len(self.data_store))
+        signal, label = self.data_store[source_idx]
+        
+        # Randomly sample starting index
+        max_start = len(signal) - self.seq_len
+        start = np.random.randint(0, max_start + 1)
+        window = signal[start : start + self.seq_len].T
+        return torch.from_numpy(window), torch.tensor(label, dtype=torch.long)
 
         # Print summary for logging
         basename = "files" if len(files) > 1 else "file"
