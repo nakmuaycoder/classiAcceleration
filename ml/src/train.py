@@ -73,7 +73,7 @@ def train(cfg: DictConfig) -> float:
     # 3. Training Loop
     writer = SummaryWriter(log_dir=".")
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(base_model.parameters(), lr=cfg.training.lr)
+    optimizer = optim.Adam(train_pipeline.parameters(), lr=cfg.training.lr)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="max", factor=0.5, patience=5)
 
     final_acc = 0.0
