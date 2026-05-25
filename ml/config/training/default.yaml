@@ -1,0 +1,5 @@
+# Training parameters optimized for TinyML research
+lr: 0.001
+batch_size: 32
+epochs: 20
+early_stop_patience: 15
