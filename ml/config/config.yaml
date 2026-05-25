@@ -26,6 +26,7 @@ hydra:
     # 🎯 SEARCH SPACE
     params:
       training.lr: interval(0.001, 0.1)
+      data.seq_len: choice(15, 20, 30, 40)
       model.filters: choice([2, 4], [4, 8], [8, 16], [16, 32])
       model.hidden_dim: choice(8, 16, 32)
       data.augment: choice(true, false)
