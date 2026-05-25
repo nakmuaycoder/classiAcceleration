@@ -3,3 +3,5 @@ data/clean/
 *.pyc
 __pycache__
 multirun/
+output/
+outputs/

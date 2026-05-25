@@ -84,3 +84,36 @@ def test_empty_dataset():
     ds = AccelerometerDataset(files=[], seq_len=10)
     assert len(ds) == 0
     print("✅ Empty dataset check passed.")
+
+
+def test_dataset_pca(dummy_csv):
+    """Verify that PCA alignment preserves shapes and matches the sklearn pipeline."""
+    seq_len = 10
+
+    # Load dataset with PCA
+    ds_pca = AccelerometerDataset(files=[dummy_csv], seq_len=seq_len, use_pca=True)
+    # Load dataset without PCA (normal)
+    ds_norm = AccelerometerDataset(files=[dummy_csv], seq_len=seq_len, use_pca=False)
+
+    assert len(ds_pca) == len(ds_norm)
+
+    x_pca, y_pca = ds_pca[0]
+    x_norm, y_norm = ds_norm[0]
+
+    # Shape check
+    assert x_pca.shape == (3, seq_len)
+    assert y_pca == y_norm
+
+    # Check that PCA components are orthogonal and centered
+    from sklearn.decomposition import PCA
+    from sklearn.pipeline import make_pipeline
+    from sklearn.preprocessing import StandardScaler
+
+    df = pd.read_csv(dummy_csv)
+    raw_data = df[["x", "y", "z"]].values.astype(np.float32)
+    pipeline = make_pipeline(StandardScaler(), PCA(n_components=3))
+    expected_full = pipeline.fit_transform(raw_data).astype(np.float32)
+    expected_window = expected_full[:seq_len].T
+
+    torch.testing.assert_close(x_pca, torch.from_numpy(expected_window))
+    print("✅ PCA dataset transformation check passed.")

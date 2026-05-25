@@ -5,8 +5,17 @@ defaults:
   - override hydra/sweeper: optuna
   - _self_
 
+output_dir: ${hydra:runtime.cwd}/output
+
 # 🧪 OPTUNA HYPERPARAMETER SEARCH CONFIGURATION (NAS)
 hydra:
+  job:
+    chdir: true
+  run:
+    dir: ${output_dir}/run_${now:%Y-%m-%d_%H-%M-%S}
+  sweep:
+    dir: ${output_dir}/multirun_${now:%Y-%m-%d_%H-%M-%S}
+    subdir: run_trial_${hydra.job.num}
   sweeper:
     direction: maximize
     storage: null
@@ -20,4 +29,9 @@ hydra:
       model.filters: choice([2, 4], [4, 8], [8, 16], [16, 32])
       model.hidden_dim: choice(8, 16, 32)
       data.augment: choice(true, false)
-      data.use_norm: true
+      data.use_norm: choice(true, false)
+      data.use_pca: choice(true, false)
+      data.augmentations.rotation: choice(true, false)
+      data.augmentations.noise: choice(true, false)
+      data.augmentations.scaling: choice(true, false)
+      data.augmentations.bias: choice(true, false)

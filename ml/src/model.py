@@ -116,10 +116,10 @@ class TinyMLConvNet(nn.Module):
 
         # Dynamic Feature Extraction Layers
         self.features = nn.Sequential(
-            nn.Conv1d(in_channels, filters[0], kernel_size=3, padding=1),
+            nn.Conv1d(in_channels, filters[0], kernel_size=4, padding=1),
             nn.ReLU(),
             nn.MaxPool1d(kernel_size=2),
-            nn.Conv1d(filters[0], filters[1], kernel_size=3, padding=1),
+            nn.Conv1d(filters[0], filters[1], kernel_size=4, padding=1),
             nn.ReLU(),
             nn.MaxPool1d(kernel_size=2),
         )

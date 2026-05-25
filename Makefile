@@ -56,13 +56,23 @@ nas-1d:
 		data.use_norm=true data.augment=false
 
 .PHONY: nas-3d
-nas-3d:
+nas-3d: nas-3d-aug
+
+.PHONY: nas-3d-aug
+nas-3d-aug:
 	export PYTHONPATH=$${PYTHONPATH}:. && $(PYTHON) $(SRC_DIR)/train.py --multirun \
-		data.use_norm=false
+		data.use_norm=false data.augment=true
+
+.PHONY: nas-3d-noaug
+nas-3d-noaug:
+	export PYTHONPATH=$${PYTHONPATH}:. && $(PYTHON) $(SRC_DIR)/train.py --multirun \
+		data.use_norm=false data.augment=false data.use_pca=true
+
 
 .PHONY: export
 export:
 	export PYTHONPATH=$${PYTHONPATH}:. && $(PYTHON) $(SRC_DIR)/export.py
+
 
 .PHONY: tensorboard
 tensorboard:

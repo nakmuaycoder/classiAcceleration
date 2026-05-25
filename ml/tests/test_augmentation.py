@@ -148,3 +148,24 @@ def test_bias_shift():
     # Std across the sequence length (dimension 2) should be 0 (constant shift)
     std_diff = torch.std(diff, dim=2)
     torch.testing.assert_close(std_diff, torch.zeros_like(std_diff), atol=1e-6, rtol=1e-6)
+
+
+def test_augmentation_config_parsing():
+    """Verify that Hydra correctly parses the default augmentation configuration."""
+    from hydra import compose, initialize
+
+    with initialize(version_base="1.3", config_path="../config"):
+        cfg = compose(config_name="config")
+
+        # Verify default augmentations structure exists
+        assert "augmentations" in cfg.data
+        assert cfg.data.augmentations.rotation is True
+        assert cfg.data.augmentations.noise is False
+        assert cfg.data.augmentations.scaling is False
+        assert cfg.data.augmentations.bias is False
+
+        # Verify default parameters
+        assert cfg.data.augment_params.noise_std == 0.02
+        assert cfg.data.augment_params.min_scale == 0.8
+        assert cfg.data.augment_params.max_scale == 1.2
+        assert cfg.data.augment_params.max_shift == 0.1
