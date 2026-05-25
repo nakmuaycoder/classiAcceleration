@@ -33,7 +33,27 @@ def train(cfg: DictConfig) -> float:
     Main training execution function.
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"🚀 Experiment: Architecture {cfg.model.filters} | Mode Norm: {cfg.data.use_norm}")
+
+    is_multirun = False
+    trial_num = None
+    try:
+        from hydra.core.hydra_config import HydraConfig
+
+        is_multirun = HydraConfig.get().mode.name == "MULTIRUN"
+        trial_num = HydraConfig.get().job.num
+    except Exception:
+        pass
+
+    if is_multirun:
+        print(
+            f"[Trial {trial_num}] 🚀 Starting: "
+            f"filters={cfg.model.filters}, "
+            f"lr={cfg.training.lr:.4f}, "
+            f"seq_len={cfg.data.seq_len}, "
+            f"use_norm={cfg.data.use_norm}"
+        )
+    else:
+        print(f"🚀 Experiment: Architecture {cfg.model.filters} | Mode Norm: {cfg.data.use_norm}")
 
     base_model = []
     augmentation = []
@@ -86,7 +106,8 @@ def train(cfg: DictConfig) -> float:
     train_pipeline = nn.Sequential(*augmentation, base_model).to(device)
 
     total_params = sum(p.numel() for p in base_model.parameters() if p.requires_grad)
-    print(f"📐 Total Model Parameters: {total_params:,}")
+    if not is_multirun:
+        print(f"📐 Total Model Parameters: {total_params:,}")
 
     # 2. Dataset Setup via Hydra (No-Split configuration logic)
     train_dataset = hydra.utils.instantiate(cfg.data.train_ds)
@@ -103,6 +124,7 @@ def train(cfg: DictConfig) -> float:
 
     final_acc = 0.0
     best_acc = 0.0
+    best_acc_rot = 0.0
     patience_counter = 0
     early_stop_patience = 15
     val_rotator = Random3DRotation()
@@ -112,7 +134,12 @@ def train(cfg: DictConfig) -> float:
         train_pipeline.train()
         epoch_loss = 0
 
-        pbar = tqdm(train_loader, desc=f"Epoch {epoch:2d}/{cfg.training.epochs}", leave=False)
+        pbar = tqdm(
+            train_loader,
+            desc=f"Epoch {epoch:2d}/{cfg.training.epochs}",
+            leave=False,
+            disable=is_multirun,
+        )
         for raw_inputs, targets in pbar:
             raw_inputs, targets = raw_inputs.to(device), targets.to(device)
 
@@ -177,12 +204,13 @@ def train(cfg: DictConfig) -> float:
         avg_val_loss_rot = val_loss_rot / len(val_loader) if len(val_loader) > 0 else 0.0
 
         current_lr = optimizer.param_groups[0]["lr"]
-        print(
-            f"Epoch {epoch:2d} | Train Loss: {epoch_loss / len(train_loader):.4f} | "
-            f"Val Acc: {final_acc:.2%} (Rot: {final_acc_rot:.2%}) | "
-            f"Val F1: {final_f1:.4f} (Rot: {final_f1_rot:.4f}) | "
-            f"LR: {current_lr:.2e}"
-        )
+        if not is_multirun:
+            print(
+                f"Epoch {epoch:2d} | Train Loss: {epoch_loss / len(train_loader):.4f} | "
+                f"Val Acc: {final_acc:.2%} (Rot: {final_acc_rot:.2%}) | "
+                f"Val F1: {final_f1:.4f} (Rot: {final_f1_rot:.4f}) | "
+                f"LR: {current_lr:.2e}"
+            )
 
         writer.add_scalar("Accuracy/val", final_acc, epoch)
         writer.add_scalar("Accuracy/val_rotated", final_acc_rot, epoch)
@@ -198,6 +226,7 @@ def train(cfg: DictConfig) -> float:
         # Early Stopping
         if final_acc > best_acc:
             best_acc = final_acc
+            best_acc_rot = final_acc_rot
             patience_counter = 0
             # Save the best model locally in the run directory
             os.makedirs("models", exist_ok=True)
@@ -230,10 +259,11 @@ def train(cfg: DictConfig) -> float:
         else:
             patience_counter += 1
             if patience_counter >= early_stop_patience:
-                print(
-                    f"🛑 Early stopping triggered after {epoch} epochs "
-                    f"(Patience {early_stop_patience})."
-                )
+                if not is_multirun:
+                    print(
+                        f"🛑 Early stopping triggered after {epoch} epochs "
+                        f"(Patience {early_stop_patience})."
+                    )
                 break
 
     # 4. Save Final Weights & Export TensorBoard HParams
@@ -254,6 +284,12 @@ def train(cfg: DictConfig) -> float:
     writer.add_hparams(hparams, {"hparam/accuracy": best_acc, "hparam/f1": final_f1})
 
     writer.close()
+    if is_multirun:
+        print(
+            f"[Trial {trial_num}] 🎉 Finished | "
+            f"Best Val Acc: {best_acc:.2%} (Rot: {best_acc_rot:.2%}) | "
+            f"Params: {total_params:,}"
+        )
     # Return best_acc so Optuna solves to maximize the true peak performance
     return float(best_acc)
 
