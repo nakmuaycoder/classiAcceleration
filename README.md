@@ -27,10 +27,11 @@ The project follows a modern, modular structure to ensure maintainability and te
 .
 ├── firmware/         # Arduino C++ code (LSM9DS1 sensor logic)
 ├── ml/
+│   ├── config/       # Hydra & Optuna configuration files
 │   ├── src/          # Core Python modules (model, augmentation, parser)
 │   ├── tests/        # Pytest unit testing suite
-│   ├── notebooks/    # EDA and experimental analysis
-│   └── pyproject.toml # Unified dependency & tool configuration
+│   └── notebooks/    # EDA and experimental analysis
+├── pyproject.toml    # Unified dependency & tool configuration
 ├── data/
 │   ├── raw/          # LightBlue BLE Sniffer logs captured from Arduino (.txt)
 │   └── clean/        # Processed CSVs for model training
@@ -41,10 +42,14 @@ The project follows a modern, modular structure to ensure maintainability and te
 
 ## 🛠 Features
 
-### 📐 Robust 3D Rotation Augmentation
-One of the biggest challenges in wearable tech is sensor orientation. Our custom `rotate_batch_3d` function and `Random3DRotation` layer apply spatial rotations using the **Rodrigues Formula**.
-- This ensures the model learns the "physics" of movements rather than fixed directional magnitudes.
-- Includes a full suite of unit tests to verify rotation identity and reversibility.
+### 📐 Robust Data Augmentations
+One of the biggest challenges in wearable tech is sensor orientation. The training pipeline supports configurable augmentations managed dynamically via Hydra:
+- **Random 3D Rotation**: Spatial rotations using the Rodrigues Formula to make the model invariant to sensor placement.
+- **Add Gaussian Noise**: Inserts zero-mean Gaussian noise to improve robustness.
+- **Random Scaling / Bias Shift**: Simulates sensor sensitivity differences and offsets.
+
+### 📐 PCA Coordinate Alignment
+Alternatively, the dataset supports deterministic alignment using a scikit-learn pipeline (`StandardScaler` + `PCA`) on each window to test if the model learns better on pre-aligned coordinate axes.
 
 ### 🧠 Modern 1D-CNN Architecture
 Optimized for tiny ARM Cortex-M4 processors:
@@ -67,15 +72,20 @@ make install
 
 ### Development Workflow
 ```bash
-# 1. Preprocess LightBlue sniffer logs
+# 1. Preprocess LightBlue sniffer logs with strict alignment verification
 make data
 
 # 2. Run quality checks & unit tests
 make format
 make test
 
-# 3. Train the model (toggle augmentation)
-make train AUGMENT=1
+# 3. Train a single model using the active configuration
+make train
+
+# 4. Neural Architecture Search (NAS) configurations
+make nas-1d          # NAS search with 1D vector magnitude input (norm)
+make nas-3d-aug      # NAS search with 3D input and stochatic augmentations
+make nas-3d-noaug    # NAS search with 3D input and deterministic PCA axis alignment
 ```
 
 ---
