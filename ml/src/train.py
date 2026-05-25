@@ -90,7 +90,7 @@ def train(cfg: DictConfig) -> float:
         in_channels = 3
 
     # Add min-max normalization to the base model
-    base_model.append(MinMaxNormalize())
+    base_model.append(MinMaxNormalize(dynamic=cfg.data.get("dynamic_norm", True)))
 
     base_model.append(
         TinyMLConvNet(

@@ -36,6 +36,7 @@ hydra:
       data.augment: choice(true, false)
       data.use_norm: choice(true, false)
       data.use_pca: choice(true, false)
+      data.dynamic_norm: choice(true, false)
       data.augmentations.rotation: choice(true, false)
       data.augmentations.noise: choice(true, false)
       data.augmentations.scaling: choice(true, false)

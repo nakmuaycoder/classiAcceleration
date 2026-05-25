@@ -32,7 +32,9 @@ def test_vector_norm():
 
 def test_min_max_normalize():
     """Test scaling logic: Input [-4, 4] -> Output [0, 1]"""
-    norm_mod = MinMaxNormalize(min_val=-4.0, max_val=4.0, range_min=0.0, range_max=1.0)
+    norm_mod = MinMaxNormalize(
+        min_val=-4.0, max_val=4.0, range_min=0.0, range_max=1.0, dynamic=False
+    )
     x = torch.tensor([-4.0, 0.0, 4.0]).view(1, 3, 1)
 
     out = norm_mod(x)
@@ -40,6 +42,17 @@ def test_min_max_normalize():
     expected = torch.tensor([0.0, 0.5, 1.0]).view(1, 3, 1)
     torch.testing.assert_close(out, expected)
     print("✅ MinMaxNormalize test passed.")
+
+
+def test_dynamic_min_max_normalize():
+    """Test dynamic window scaling: each window/channel independently scaled."""
+    norm_mod = MinMaxNormalize(range_min=0.0, range_max=1.0, dynamic=True)
+    # Two batch samples, 1 channel, sequence length 5
+    x = torch.tensor([[[1.0, 2.0, 3.0, 4.0, 5.0]], [[10.0, 20.0, 30.0, 40.0, 50.0]]])
+    out = norm_mod(x)
+    expected = torch.tensor([[[0.0, 0.25, 0.5, 0.75, 1.0]], [[0.0, 0.25, 0.5, 0.75, 1.0]]])
+    torch.testing.assert_close(out, expected)
+    print("✅ Dynamic MinMaxNormalize test passed.")
 
 
 @pytest.mark.parametrize("filters, in_channels", [([8, 16], 3), ([4, 8], 1), ([16, 32], 3)])

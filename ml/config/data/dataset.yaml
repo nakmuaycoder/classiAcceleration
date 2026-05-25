@@ -10,6 +10,7 @@ seq_len: 20
 train_path: ${hydra:runtime.cwd}/data/clean
 use_norm: false
 use_pca: false
+dynamic_norm: true
 augment: true
 
 # Configurable augmentations (active only if data.augment is true)

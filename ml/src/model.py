@@ -37,9 +37,9 @@ class VectorNorm(nn.Module):
 
 class MinMaxNormalize(nn.Module):
     """
-    Normalizes data between [0, 1] (or custom range) based on fixed physical limits.
-    X_std = (x - min) / (max - min)
-    X_scaled = X_std * (max_new - min_new) + min_new
+    Normalizes data between [range_min, range_max].
+    If dynamic=True (default), scales each window (sample) based on its own min/max.
+    If dynamic=False, scales based on fixed physical limits (min_val, max_val).
     """
 
     def __init__(
@@ -48,6 +48,7 @@ class MinMaxNormalize(nn.Module):
         max_val: float = 4.0,
         range_min: float = 0.0,
         range_max: float = 1.0,
+        dynamic: bool = True,
     ):
         """
         Args:
@@ -55,23 +56,38 @@ class MinMaxNormalize(nn.Module):
             max_val: Expected maximum value from the sensor (e.g. +4g).
             range_min: Target minimum (e.g. 0.0).
             range_max: Target maximum (e.g. 1.0).
+            dynamic: If True, scale dynamically window-by-window.
         """
         super().__init__()
         self.min_val = min_val
         self.max_val = max_val
         self.range_min = range_min
         self.range_max = range_max
+        self.dynamic = dynamic
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Scales the input tensor with clipping for robustness.
+        Scales the input tensor dynamically or with fixed limits.
         """
-        denom = self.max_val - self.min_val
-        if denom == 0:
-            return torch.full_like(x, self.range_min)
-        x_std = (x - self.min_val) / denom
-        x_scaled = x_std * (self.range_max - self.range_min) + self.range_min
-        return torch.clamp(x_scaled, self.range_min, self.range_max)
+        if self.dynamic:
+            # Dynamic window-wise min-max scaling per channel
+            # Shape of x: (B, C, L)
+            # Find min and max along the sequence length dimension (dim=-1)
+            x_min = x.min(dim=-1, keepdim=True)[0]
+            x_max = x.max(dim=-1, keepdim=True)[0]
+            denom = x_max - x_min
+            # Avoid division by zero: if max == min, set denom to 1.0
+            denom = torch.where(denom == 0.0, torch.ones_like(denom), denom)
+            x_std = (x - x_min) / denom
+            x_scaled = x_std * (self.range_max - self.range_min) + self.range_min
+            return x_scaled
+        else:
+            denom = self.max_val - self.min_val
+            if denom == 0:
+                return torch.full_like(x, self.range_min)
+            x_std = (x - self.min_val) / denom
+            x_scaled = x_std * (self.range_max - self.range_min) + self.range_min
+            return torch.clamp(x_scaled, self.range_min, self.range_max)
 
 
 class TinyMLConvNet(nn.Module):
