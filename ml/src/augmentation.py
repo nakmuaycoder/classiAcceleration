@@ -104,3 +104,119 @@ class Random3DRotation(nn.Module):
 
         # 3. Apply rotation
         return rotate_batch_3d(x, ux, uy, uz, angles)
+
+
+class AddGaussianNoise(nn.Module):
+    """
+    PyTorch Augmentation Layer that adds random Gaussian noise.
+
+    This simulates sensor noise (electrical or physical jitter) from MEMS IMUs.
+    """
+
+    def __init__(self, std: float = 0.02):
+        """
+        Args:
+            std (float): Standard deviation of the Gaussian noise.
+        """
+        super().__init__()
+        self.std = std
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Applies random Gaussian noise to the input batch.
+
+        Args:
+            x (Tensor): Input tensor of shape (B, C, L) or (C, L).
+
+        Returns:
+            Tensor: Noised tensor of same shape as input.
+        """
+        if not self.training:
+            return x
+        noise = torch.randn_like(x) * self.std
+        return x + noise
+
+
+class RandomScaling(nn.Module):
+    """
+    PyTorch Augmentation Layer that applies random scaling per sample.
+
+    Simulates variations in physical movement intensity or sensor sensitivity.
+    """
+
+    def __init__(self, min_scale: float = 0.8, max_scale: float = 1.2):
+        """
+        Args:
+            min_scale (float): Minimum scaling factor.
+            max_scale (float): Maximum scaling factor.
+        """
+        super().__init__()
+        self.min_scale = min_scale
+        self.max_scale = max_scale
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Applies random scaling to the input batch.
+
+        Args:
+            x (Tensor): Input tensor of shape (B, C, L) or (C, L).
+
+        Returns:
+            Tensor: Scaled tensor of same shape as input.
+        """
+        if not self.training:
+            return x
+        device = x.device
+        if x.dim() == 2:
+            scale = torch.empty(1, device=device).uniform_(self.min_scale, self.max_scale)
+            return x * scale
+        else:
+            batch_size = x.shape[0]
+            # scale shape (B, 1, 1) to broadcast to (B, C, L)
+            scale = torch.empty(batch_size, 1, 1, device=device).uniform_(
+                self.min_scale, self.max_scale
+            )
+            return x * scale
+
+
+class BiasShift(nn.Module):
+    """
+    PyTorch Augmentation Layer that adds a constant random offset (bias) per channel.
+
+    Simulates sensor zero-g offset calibration errors common in MEMS sensors.
+    """
+
+    def __init__(self, max_shift: float = 0.1):
+        """
+        Args:
+            max_shift (float): Maximum absolute value of the offset shift.
+        """
+        super().__init__()
+        self.max_shift = max_shift
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Applies random constant offset shifts per channel.
+
+        Args:
+            x (Tensor): Input tensor of shape (B, C, L) or (C, L).
+
+        Returns:
+            Tensor: Shifted tensor of same shape as input.
+        """
+        if not self.training:
+            return x
+        device = x.device
+        if x.dim() == 2:
+            channels = x.shape[0]
+            shift = torch.empty(channels, 1, device=device).uniform_(
+                -self.max_shift, self.max_shift
+            )
+            return x + shift
+        else:
+            batch_size, channels, _ = x.shape
+            # shift shape (B, C, 1) to broadcast to (B, C, L)
+            shift = torch.empty(batch_size, channels, 1, device=device).uniform_(
+                -self.max_shift, self.max_shift
+            )
+            return x + shift

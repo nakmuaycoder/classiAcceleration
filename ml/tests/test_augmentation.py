@@ -80,3 +80,71 @@ def test_various_batch_sizes(batch_size):
     norm_in = torch.norm(x, dim=1)
     norm_out = torch.norm(rotated, dim=1)
     torch.testing.assert_close(norm_in, norm_out, atol=1e-5, rtol=1e-5)
+
+
+def test_add_gaussian_noise():
+    """Verify that Gaussian noise is only added during training."""
+    from ml.src.augmentation import AddGaussianNoise
+
+    x = torch.randn(4, 3, 50)
+
+    # 1. Eval mode -> identity
+    layer = AddGaussianNoise(std=0.1)
+    layer.eval()
+    out_eval = layer(x)
+    torch.testing.assert_close(x, out_eval)
+
+    # 2. Train mode -> noise added
+    layer.train()
+    out_train = layer(x)
+    assert not torch.allclose(x, out_train)
+    assert out_train.shape == x.shape
+
+
+def test_random_scaling():
+    """Verify scaling logic and shape consistency in train/eval."""
+    from ml.src.augmentation import RandomScaling
+
+    # Use positive values far from zero to ensure stable division for test assertions
+    x = torch.randn(4, 3, 50).abs() + 0.5
+
+    layer = RandomScaling(min_scale=0.8, max_scale=1.2)
+
+    # Eval mode
+    layer.eval()
+    torch.testing.assert_close(x, layer(x))
+
+    # Train mode
+    layer.train()
+    out = layer(x)
+    assert out.shape == x.shape
+
+    # Extract scale factor using the first element of each batch
+    scale_factor = out[:, 0:1, 0:1] / x[:, 0:1, 0:1]  # shape (B, 1, 1)
+
+    # The entire output should be exactly scaled by this factor
+    torch.testing.assert_close(out, x * scale_factor, atol=1e-5, rtol=1e-5)
+
+
+def test_bias_shift():
+    """Verify bias shift logic and shape consistency in train/eval."""
+    from ml.src.augmentation import BiasShift
+
+    x = torch.randn(4, 3, 50)
+
+    layer = BiasShift(max_shift=0.2)
+
+    # Eval mode
+    layer.eval()
+    torch.testing.assert_close(x, layer(x))
+
+    # Train mode
+    layer.train()
+    out = layer(x)
+    assert out.shape == x.shape
+
+    # Check that within a sample and channel, the shift is constant across time
+    diff = out - x
+    # Std across the sequence length (dimension 2) should be 0 (constant shift)
+    std_diff = torch.std(diff, dim=2)
+    torch.testing.assert_close(std_diff, torch.zeros_like(std_diff), atol=1e-6, rtol=1e-6)
