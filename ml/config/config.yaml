@@ -3,6 +3,7 @@ defaults:
   - training: default
   - data: dataset
   - override hydra/sweeper: optuna
+  - override hydra/launcher: joblib
   - _self_
 
 experiment_name: default
@@ -17,6 +18,8 @@ hydra:
   sweep:
     dir: output/${experiment_name}/multirun_${now:%Y-%m-%d_%H-%M-%S}
     subdir: run_trial_${hydra.job.num}
+  launcher:
+    n_jobs: ${hydra.sweeper.n_jobs}
   sweeper:
     direction: maximize
     storage: null
