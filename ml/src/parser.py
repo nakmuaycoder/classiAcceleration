@@ -115,15 +115,13 @@ class AccelLogParser:
                         value = struct.unpack("<f", bytes.fromhex(hex_val))[0]
                         col_name = self.column_mapping[handle]
 
-                        # Trigger de synchronisation sur l'axe X
-                        if col_name == "x" and "x" in current_row:
-                            rows.append(current_row)
-                            current_row = {}
-
-                        current_row[col_name] = value
-                        current_row["label"] = current_label
-
                         if col_name == "x":
+                            if all(ax in current_row for ax in self.axes):
+                                rows.append(current_row)
+                            current_row = {
+                                "x": value,
+                                "label": current_label,
+                            }
                             hour_str = parts[3].replace(":", "")
                             try:
                                 current_row["date"] = datetime.strptime(
@@ -131,12 +129,26 @@ class AccelLogParser:
                                 )
                             except ValueError:
                                 current_row["date"] = None
+                        elif col_name == "y":
+                            if (
+                                "x" in current_row
+                                and "y" not in current_row
+                                and "z" not in current_row
+                            ):
+                                current_row["y"] = value
+                            else:
+                                current_row = {}
+                        elif col_name == "z":
+                            if "x" in current_row and "y" in current_row and "z" not in current_row:
+                                current_row["z"] = value
+                            else:
+                                current_row = {}
 
                     except (ValueError, struct.error, IndexError):
                         pass
 
-        # Flush du dernier enregistrement
-        if current_row:
+        # Flush du dernier enregistrement s'il est complet
+        if current_row and all(ax in current_row for ax in self.axes):
             rows.append(current_row)
 
         df = pd.DataFrame(rows)
