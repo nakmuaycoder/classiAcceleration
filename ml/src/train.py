@@ -9,12 +9,13 @@ Date: 2026/04
 import os
 
 import hydra
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from omegaconf import DictConfig
 from sklearn.metrics import f1_score
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
@@ -113,7 +114,21 @@ def train(cfg: DictConfig) -> float:
     train_dataset = hydra.utils.instantiate(cfg.data.train_ds)
     val_dataset = hydra.utils.instantiate(cfg.data.val_ds)
 
-    train_loader = DataLoader(train_dataset, batch_size=cfg.training.batch_size, shuffle=True)
+    # Balance the dataset using a WeightedRandomSampler
+    all_labels = np.array(train_dataset.labels)
+    unique_classes, class_sample_count = np.unique(all_labels, return_counts=True)
+    weight_dict = {
+        c: 1.0 / count for c, count in zip(unique_classes, class_sample_count, strict=True)
+    }
+    samples_weight = np.array([weight_dict[t] for t in all_labels])
+
+    sampler = WeightedRandomSampler(
+        weights=torch.from_numpy(samples_weight).double(),
+        num_samples=len(samples_weight),
+        replacement=True,
+    )
+
+    train_loader = DataLoader(train_dataset, batch_size=cfg.training.batch_size, sampler=sampler)
     val_loader = DataLoader(val_dataset, batch_size=cfg.training.batch_size, shuffle=False)
 
     # 3. Training Loop
@@ -122,7 +137,9 @@ def train(cfg: DictConfig) -> float:
     optimizer = optim.Adam(train_pipeline.parameters(), lr=cfg.training.lr)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="max", factor=0.5, patience=5)
 
-    final_acc = 0.0
+    final_f1 = 0.0
+    best_f1 = 0.0
+    best_f1_rot = 0.0
     best_acc = 0.0
     best_acc_rot = 0.0
     patience_counter = 0
@@ -221,10 +238,12 @@ def train(cfg: DictConfig) -> float:
         writer.add_scalar("LR/train", current_lr, epoch)
 
         # LR Scheduler Step
-        scheduler.step(final_acc)
+        scheduler.step(final_f1)
 
-        # Early Stopping
-        if final_acc > best_acc:
+        # Early Stopping (driven by F1-score)
+        if final_f1 > best_f1:
+            best_f1 = final_f1
+            best_f1_rot = final_f1_rot
             best_acc = final_acc
             best_acc_rot = final_acc_rot
             patience_counter = 0
@@ -236,26 +255,26 @@ def train(cfg: DictConfig) -> float:
             # Check and save the best model overall in output/best
             best_dir = os.path.join(cfg.output_dir, "best")
             os.makedirs(best_dir, exist_ok=True)
-            best_acc_file = os.path.join(best_dir, "best_accuracy.txt")
+            best_f1_file = os.path.join(best_dir, "best_f1.txt")
 
-            # Read overall best accuracy across runs/trials
-            overall_best_acc = 0.0
-            if os.path.exists(best_acc_file):
+            # Read overall best F1 score across runs/trials
+            overall_best_f1 = 0.0
+            if os.path.exists(best_f1_file):
                 try:
-                    with open(best_acc_file) as f:
-                        overall_best_acc = float(f.read().strip())
+                    with open(best_f1_file) as f_in:
+                        overall_best_f1 = float(f_in.read().strip())
                 except Exception:
                     pass
 
-            if final_acc > overall_best_acc:
-                overall_best_acc = final_acc
+            if final_f1 > overall_best_f1:
+                overall_best_f1 = final_f1
                 best_model_path = os.path.join(best_dir, f"best_pipeline{suffix}.pth")
                 torch.save(base_model.state_dict(), best_model_path)
                 try:
-                    with open(best_acc_file, "w") as f:
-                        f.write(f"{overall_best_acc:.6f}\n")
+                    with open(best_f1_file, "w") as f_out:
+                        f_out.write(f"{overall_best_f1:.6f}\n")
                 except Exception as e:
-                    print(f"Warning: Could not write overall best accuracy: {e}")
+                    print(f"Warning: Could not write overall best F1: {e}")
         else:
             patience_counter += 1
             if patience_counter >= early_stop_patience:
@@ -281,17 +300,24 @@ def train(cfg: DictConfig) -> float:
         "use_norm": cfg.data.use_norm,
         "total_params": total_params,
     }
-    writer.add_hparams(hparams, {"hparam/accuracy": best_acc, "hparam/f1": final_f1})
+    writer.add_hparams(hparams, {"hparam/accuracy": best_acc, "hparam/f1": best_f1})
 
     writer.close()
     if is_multirun:
         print(
             f"[Trial {trial_num}] 🎉 Finished | "
+            f"Best Val F1: {best_f1:.4f} (Rot: {best_f1_rot:.4f}) | "
+            f"Params: {total_params:,}"
+        )
+    else:
+        print(
+            f"🎉 Training Finished | "
+            f"Best Val F1: {best_f1:.4f} (Rot: {best_f1_rot:.4f}) | "
             f"Best Val Acc: {best_acc:.2%} (Rot: {best_acc_rot:.2%}) | "
             f"Params: {total_params:,}"
         )
-    # Return best_acc so Optuna solves to maximize the true peak performance
-    return float(best_acc)
+    # Return best_f1 so Optuna solves to maximize the true peak performance
+    return float(best_f1)
 
 
 if __name__ == "__main__":
