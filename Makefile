@@ -43,17 +43,17 @@ clean:
 # --- Model Workflow ---
 .PHONY: train
 train:
-	export PYTHONPATH=$${PYTHONPATH}:. && $(PYTHON) $(SRC_DIR)/train.py
+	export PYTHONPATH=$${PYTHONPATH}:. && $(PYTHON) $(SRC_DIR)/train.py experiment_name=single_run
 
 # Automated NAS (Neural Architecture Search) with Optuna Sweeper
 .PHONY: nas
 nas:
-	export PYTHONPATH=$${PYTHONPATH}:. && $(PYTHON) $(SRC_DIR)/train.py --multirun
+	export PYTHONPATH=$${PYTHONPATH}:. && $(PYTHON) $(SRC_DIR)/train.py --multirun experiment_name=nas_generic
 
 .PHONY: nas-1d
 nas-1d:
 	export PYTHONPATH=$${PYTHONPATH}:. && $(PYTHON) $(SRC_DIR)/train.py --multirun \
-		data.use_norm=true data.augment=false
+		experiment_name=nas-1d data.use_norm=true data.augment=false
 
 .PHONY: nas-3d
 nas-3d: nas-3d-aug
@@ -61,12 +61,12 @@ nas-3d: nas-3d-aug
 .PHONY: nas-3d-aug
 nas-3d-aug:
 	export PYTHONPATH=$${PYTHONPATH}:. && $(PYTHON) $(SRC_DIR)/train.py --multirun \
-		data.use_norm=false data.augment=true
+		experiment_name=nas-3d-aug data.use_norm=false data.augment=true
 
 .PHONY: nas-3d-noaug
 nas-3d-noaug:
 	export PYTHONPATH=$${PYTHONPATH}:. && $(PYTHON) $(SRC_DIR)/train.py --multirun \
-		data.use_norm=false data.augment=false data.use_pca=true
+		experiment_name=nas-3d-noaug data.use_norm=false data.augment=false data.use_pca=true
 
 
 .PHONY: export
@@ -76,7 +76,7 @@ export:
 
 .PHONY: tensorboard
 tensorboard:
-	uv run tensorboard --logdir multirun/
+	uv run tensorboard --logdir output/
 
 # --- Testing ---
 .PHONY: test

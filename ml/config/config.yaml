@@ -5,16 +5,17 @@ defaults:
   - override hydra/sweeper: optuna
   - _self_
 
-output_dir: ${hydra:runtime.cwd}/output
+experiment_name: default
+output_dir: ${hydra:runtime.cwd}/output/${experiment_name}
 
 # 🧪 OPTUNA HYPERPARAMETER SEARCH CONFIGURATION (NAS)
 hydra:
   job:
     chdir: true
   run:
-    dir: output/run_${now:%Y-%m-%d_%H-%M-%S}
+    dir: output/${experiment_name}/run_${now:%Y-%m-%d_%H-%M-%S}
   sweep:
-    dir: output/multirun_${now:%Y-%m-%d_%H-%M-%S}
+    dir: output/${experiment_name}/multirun_${now:%Y-%m-%d_%H-%M-%S}
     subdir: run_trial_${hydra.job.num}
   sweeper:
     direction: maximize
